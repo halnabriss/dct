@@ -3,44 +3,21 @@ kind: ClusterConfig
 
 metadata:
   name: DCT-Cluster
-  region: us-east-1            # change if needed
+  region: us-east-1
   version: "1.30"
-
-vpc:
-  cidr: 10.0.0.0/16
-  nat:
-    gateway: Single            # cheapest NAT option
-
-iam:
-  withOIDC: true               # needed for cert-manager/autoscaler
 
 managedNodeGroups:
   - name: app-nodes
-    instanceTypes: ["t3.medium"]  # 2 vCPU / 4 GiB RAM
+    instanceTypes: ["t3.medium"]
     minSize: 1
     desiredCapacity: 1
     maxSize: 2
-    capacityType: ON_DEMAND       # (can change to SPOT for even cheaper)
     volumeSize: 40
-    privateNetworking: true
     iam:
       withAddonPolicies:
         ebs: true
-        autoScaler: true
         cloudWatch: true
-    labels: { role: app }
-    tags:
-      k8s.io/cluster-autoscaler/enabled: "true"
-      k8s.io/cluster-autoscaler/DCT-Cluster: "owned"
+        autoScaler: true
 
-addons:
-  - name: vpc-cni
-    version: latest
-  - name: kube-proxy
-    version: latest
-  - name: coredns
-    version: latest
-
-cloudWatch:
-  clusterLogging:
-    enableTypes: ["api","audit","authenticator","controllerManager","scheduler"]
+iam:
+  withOIDC: true
