@@ -13,16 +13,20 @@ spec:
     spec:
       containers:
         - name: php
-          image: public.ecr.aws/bitnami/nginx-php-fpm:latest
+          image: public.ecr.aws/docker/library/php:8.2-apache
           imagePullPolicy: Always
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 80
+          # Ensure MySQL extensions are available, then start Apache
+          command: ["bash","-lc"]
+          args:
+            - |
+              docker-php-ext-install mysqli pdo_mysql >/dev/null 2>&1 || true
+              apache2-foreground
           env:
-            - name: APACHE_HTTP_PORT_NUMBER   # bitnami image listens on 8080 by default; keeping explicit
-              value: "8080"
             - name: DB_HOST
-              value: "mysql"                   # Service name in same namespace
+              value: "mysql"
             - name: DB_USER
               value: "root"
             - name: DB_NAME
@@ -36,27 +40,19 @@ spec:
                   name: mysql-root
                   key: password
           readinessProbe:
-            httpGet:
-              path: /
-              port: http
+            httpGet: { path: /, port: http }
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /
-              port: http
+            httpGet: { path: /, port: http }
             initialDelaySeconds: 20
             periodSeconds: 20
           resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
-              memory: "256Mi"
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
           volumeMounts:
             - name: php-code
-              mountPath: /app   # bitnami/php-apache document root
+              mountPath: /var/www/html
       volumes:
         - name: php-code
           configMap:
