@@ -1,14 +1,16 @@
+# ingress-tls.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: php-backend-ingress
   namespace: dct-app
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
+  ingressClassName: nginx
   tls:
-    - hosts: [ "54-84-230-100.sslip.io" ]
+    - hosts:
+        - 54-84-230-100.sslip.io
       secretName: php-backend-tls
   rules:
     - host: 54-84-230-100.sslip.io
