@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-app
+  namespace: dct-app
+data:
+  config.php: |
+    <?php
+    function db() {
+      static $mysqli = null;
+      if ($mysqli) return $mysqli;
+
+      $host = getenv('DB_HOST') ?: 'mysql';
+      $user = getenv('DB_USER') ?: 'root';
+      $pass = getenv('DB_PASSWORD') ?: '';
+      $name = getenv('DB_NAME') ?: 'dctdb';
+
+      $mysqli = new mysqli($host, $user, $pass, $name);
+      if ($mysqli->connect_errno) {
+        http_response_code(500);
+        die('DB connect error: ' . $mysqli->connect_error);
+      }
+
+      $create = <<<SQL
+      CREATE TABLE IF NOT EXISTS client_ips (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ip VARCHAR(45) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      SQL;
+      $mysqli->query($create);
+      return $mysqli;
+    }
+
+    function client_ip() {
+      // Prefer X-Forwarded-For if behind LB/Ingress, else REMOTE_ADDR
+      if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        // Could be a list: client, proxy1, proxy2...
+        $parts = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        return trim($parts[0]);
+      }
+      if (!empty($_SERVER['HTTP_X_REAL_IP'])) return $_SERVER['HTTP_X_REAL_IP'];
+      return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+  index.php: |
+    <?php
+    require __DIR__ . '/config.php';
+    $ip = client_ip();
+    $mysqli = db();
+    $stmt = $mysqli->prepare('INSERT INTO client_ips (ip) VALUES (?)');
+    $stmt->bind_param('s', $ip);
+    $ok = $stmt->execute();
+    $stmt->close();
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+    <!doctype html>
+    <html>
+      <head><meta charset="utf-8"><title>IP Logger</title></head>
+      <body style="font-family: sans-serif;">
+        <h2>Your IP address is <code><?=htmlspecialchars($ip, ENT_QUOTES)?></code></h2>
+        <p><?= $ok ? 'and <strong>inserted to the DB</strong>.' : 'but <strong>failed to insert</strong> into DB.' ?></p>
+        <hr>
+        <p><a href="/list.php">View all collected IPs</a></p>
+      </body>
+    </html>
+  list.php: |
+    <?php
+    require __DIR__ . '/config.php';
+    $mysqli = db();
+    $res = $mysqli->query('SELECT id, ip, created_at FROM client_ips ORDER BY id DESC LIMIT 1000');
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+    <!doctype html>
+    <html>
+      <head><meta charset="utf-8"><title>Collected IPs</title></head>
+      <body style="font-family: sans-serif;">
+        <h2>Collected IPs</h2>
+        <table border="1" cellpadding="6" cellspacing="0">
+          <thead><tr><th>ID</th><th>IP</th><th>Created At</th></tr></thead>
+          <tbody>
+          <?php while ($row = $res->fetch_assoc()): ?>
+            <tr>
+              <td><?= (int)$row['id'] ?></td>
+              <td><code><?= htmlspecialchars($row['ip'], ENT_QUOTES) ?></code></td>
+              <td><?= htmlspecialchars($row['created_at'], ENT_QUOTES) ?></td>
+            </tr>
+          <?php endwhile; ?>
+          </tbody>
+        </table>
+        <p><a href="/">Back</a></p>
+      </body>
+    </html>

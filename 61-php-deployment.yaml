@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-backend
+  namespace: dct-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: php-backend }
+  template:
+    metadata:
+      labels: { app: php-backend }
+    spec:
+      containers:
+        - name: php
+          image: bitnami/php-apache:8.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: APACHE_HTTP_PORT_NUMBER   # bitnami image listens on 8080 by default; keeping explicit
+              value: "8080"
+            - name: DB_HOST
+              value: "mysql"                   # Service name in same namespace
+            - name: DB_USER
+              value: "root"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root
+                  key: database
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root
+                  key: password
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: php-code
+              mountPath: /app   # bitnami/php-apache document root
+      volumes:
+        - name: php-code
+          configMap:
+            name: php-app
+            items:
+              - key: index.php
+                path: index.php
+              - key: list.php
+                path: list.php
+              - key: config.php
+                path: config.php
