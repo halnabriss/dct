@@ -14,7 +14,7 @@ spec:
       containers:
         - name: php
           image: public.ecr.aws/bitnami/php-apache:8.2
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
