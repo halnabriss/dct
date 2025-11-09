@@ -95,7 +95,8 @@ spec:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        # storageClassName: gp3   # uncomment to pin gp3; otherwise uses cluster default
+        storageClassName: gp3
         resources:
           requests:
             storage: 5Gi
+

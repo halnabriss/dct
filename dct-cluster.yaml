@@ -21,3 +21,14 @@ managedNodeGroups:
 
 iam:
   withOIDC: true
+  serviceAccounts:
+    - metadata:
+        name: ebs-csi-controller-sa
+        namespace: kube-system
+      attachPolicyARNs:
+        - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
+addons:
+  - name: aws-ebs-csi-driver
+    version: latest
+
